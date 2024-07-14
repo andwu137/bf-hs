@@ -6,7 +6,7 @@ module Language.BF.Compile.X86_64 (
 
 import Language.BF (Expr (..), Parser, bf, runParser)
 
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Data.Functor ((<&>))
 import System.Process (readProcess)
 
@@ -34,11 +34,12 @@ obj2exec filename outputTemp output =
         ]
         ""
 
-compile :: FilePath -> FilePath -> String -> String -> IO ()
-compile filename input outputTemp output = do
+compile :: Bool -> FilePath -> FilePath -> String -> String -> IO ()
+compile debug filename input outputTemp output = do
     file <- readFile (input <> "/" <> filename <> ".b")
-    putStrLn "File Contents:"
-    mapM_ putStrLn $ lines file
+    when debug $ do
+        putStrLn "File Contents:"
+        mapM_ putStrLn $ lines file
 
     case runParser (bf2nasm bf) file of
         Nothing -> do
@@ -46,7 +47,6 @@ compile filename input outputTemp output = do
             putStrLn "error messages are for the weak anyways"
         Just (prog, _s) -> do
             putStrLn (outputTemp <> "/" <> filename <> ".asm")
-            -- printCode prog
             writeFile (outputTemp <> "/" <> filename <> ".asm") $
                 unlines prog
 
