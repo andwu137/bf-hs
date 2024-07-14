@@ -21,10 +21,10 @@ data Expr
     | In
     | Loop !Natural [Expr]
     | Noop
-    deriving (Show)
+    deriving (Show, Eq)
 
 bf :: Parser String Maybe [Expr]
-bf = many (loop <|> tok)
+bf = filter (Noop /=) <$> many (loop <|> tok)
 
 loop :: Parser String Maybe Expr
 loop = do
