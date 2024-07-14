@@ -28,8 +28,8 @@ bf = many (loop <|> tok)
 
 loop :: Parser String Maybe Expr
 loop = do
-    pos <- getPos
     void $ char '['
+    pos <- getPos
     fs <- bf
     void $ char ']'
     pure $
