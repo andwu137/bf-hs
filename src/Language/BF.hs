@@ -86,8 +86,7 @@ bf2nasm :: Parser String Maybe [Function] -> Parser String Maybe [String]
 bf2nasm p =
     p <&> \fs ->
         let header =
-                [ "; GNU Assembler, Intel syntax, x86_64 Linux"
-                , "SECTION .data"
+                [ "SECTION .data"
                 , "SYS_EXIT equ 60"
                 , "SUCCESS equ 0"
                 , "SYS_WRITE equ 1"
