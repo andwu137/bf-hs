@@ -85,6 +85,7 @@ main = do
         pure $ case outputDir args of
             Just dir -> dir
             Nothing -> "output"
+    let outputTemp = output <> "/temp"
 
     file <- readFile (input <> "/" <> filename <> ".b")
     putStrLn "File Contents:"
@@ -93,20 +94,20 @@ main = do
     case runParser (bf2nasm bf) file of
         Nothing -> putStrLn "welp that didnt work for some reason"
         Just (prog, _s) -> do
-            putStrLn (output <> "/temp/" <> filename <> ".asm")
+            putStrLn (outputTemp <> "/" <> filename <> ".asm")
             -- printCode prog
-            writeFile (output <> "/temp/" <> filename <> ".asm") $
+            writeFile (outputTemp <> "/" <> filename <> ".asm") $
                 unlines prog
 
-            putStrLn (output <> "/temp/" <> filename <> ".o")
+            putStrLn (outputTemp <> "/" <> filename <> ".o")
             void $
                 readProcess
                     "nasm"
                     [ "-f"
                     , "elf64"
-                    , output <> "/temp/" <> filename <> ".asm"
+                    , outputTemp <> "/" <> filename <> ".asm"
                     , "-o"
-                    , output <> "/temp/" <> filename <> ".o"
+                    , outputTemp <> "/" <> filename <> ".o"
                     ]
                     ""
             putStrLn (output <> "/" <> filename)
@@ -115,7 +116,7 @@ main = do
                     "ld"
                     [ "-m"
                     , "elf_x86_64"
-                    , output <> "/temp/" <> filename <> ".o"
+                    , outputTemp <> "/" <> filename <> ".o"
                     , "-o"
                     , output <> "/" <> filename
                     ]
