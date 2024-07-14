@@ -2,21 +2,13 @@
 
 module Main (main) where
 
-import Control.Monad (void)
 import Data.Foldable (Foldable (..))
 import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
-import Debug.Trace
-import Language.BF (bf, bf2nasm, runParser)
 import System.Environment (getArgs)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
-import System.Process
 
-printCode :: [String] -> IO ()
-printCode f = do
-    putStrLn "```"
-    mapM_ putStrLn f
-    putStrLn "```\n"
+import Language.BF.Compile.X86_64 (compile)
 
 getInput :: String -> IO String
 getInput question = do
@@ -48,7 +40,7 @@ lstrip :: (Eq a) => a -> [a] -> [a]
 lstrip c = dropWhile (c ==)
 
 parseArgs :: [String] -> Args
-parseArgs args = fold $ unfoldr (parseArg . traceShowId) args
+parseArgs args = fold $ unfoldr parseArg args
   where
     parseArg = \case
         "-i" : name : xs ->
@@ -76,7 +68,8 @@ main = do
     filename <-
         case inputFile args of
             Just file -> pure file
-            Nothing -> getInput "filename: "
+            -- Nothing -> getInput "filename: "
+            Nothing -> pure "hello_world"
     input <-
         pure $ case inputDir args of
             Just dir -> dir
@@ -87,37 +80,4 @@ main = do
             Nothing -> "output"
     let outputTemp = output <> "/temp"
 
-    file <- readFile (input <> "/" <> filename <> ".b")
-    putStrLn "File Contents:"
-    printCode $ lines file
-
-    case runParser (bf2nasm bf) file of
-        Nothing -> putStrLn "welp that didnt work for some reason"
-        Just (prog, _s) -> do
-            putStrLn (outputTemp <> "/" <> filename <> ".asm")
-            -- printCode prog
-            writeFile (outputTemp <> "/" <> filename <> ".asm") $
-                unlines prog
-
-            putStrLn (outputTemp <> "/" <> filename <> ".o")
-            void $
-                readProcess
-                    "nasm"
-                    [ "-f"
-                    , "elf64"
-                    , outputTemp <> "/" <> filename <> ".asm"
-                    , "-o"
-                    , outputTemp <> "/" <> filename <> ".o"
-                    ]
-                    ""
-            putStrLn (output <> "/" <> filename)
-            void $
-                readProcess
-                    "ld"
-                    [ "-m"
-                    , "elf_x86_64"
-                    , outputTemp <> "/" <> filename <> ".o"
-                    , "-o"
-                    , output <> "/" <> filename
-                    ]
-                    ""
+    compile filename input outputTemp output

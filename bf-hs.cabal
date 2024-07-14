@@ -26,6 +26,9 @@ source-repository head
 library
   exposed-modules:
       Language.BF
+      Language.BF.Compile.X86_64
+      Language.BF.Syntax
+      Parser.Core
   other-modules:
       Paths_bf_hs
   autogen-modules:
