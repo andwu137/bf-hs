@@ -109,8 +109,8 @@ main = do
 
     case input of
         Just f -> do
-            setupDirs [inDir, outDir, outTemp]
+            setupDirs [outDir, outTemp]
             compileFile f
         Nothing -> do
-            setupDirs ["input", "output", "output/temp"]
+            setupDirs ["output", "output/temp"]
             compile debug "hello_world" "input" "output/temp" "output"
