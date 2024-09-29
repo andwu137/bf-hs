@@ -10,11 +10,6 @@ import System.IO (BufferMode (..), hSetBuffering, stdout)
 
 import Language.BF.Compile.X86_64 (compile)
 
-getInput :: String -> IO String
-getInput question = do
-    putStr question
-    getLine
-
 data Args = Args
     { inputFile :: Maybe String
     , inputDir :: Maybe String
@@ -73,15 +68,9 @@ main = do
             Just file -> pure file
             -- Nothing -> getInput "filename: "
             Nothing -> pure "hello_world"
-    input <-
-        pure $ case inputDir args of
-            Just dir -> dir
-            Nothing -> "input"
-    output <-
-        pure $ case outputDir args of
-            Just dir -> dir
-            Nothing -> "output"
-    debug <- pure $ debugs args
     let outputTemp = output <> "/temp"
+        input = fromMaybe "input" $ inputDir args
+        output = fromMaybe "output" $ outputDir args
+        debug = debugs args
 
     compile debug filename input outputTemp output
