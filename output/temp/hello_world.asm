@@ -13,44 +13,44 @@ _start:
 	mov r12, array
 	add byte [r12], 1
 	cmp [r12], byte 0
-	je .LOOP_END_22
-	.LOOP_START_22:
+	je .LOOP_END_23
+	.LOOP_START_23:
 		sub byte [r12], 1
 		cmp [r12], byte 0
-		je .LOOP_END_24
-		.LOOP_START_24:
+		je .LOOP_END_25
+		.LOOP_START_25:
 			sub r12, byte 2
 			cmp [r12], byte 0
-			je .LOOP_END_27
-			.LOOP_START_27:
+			je .LOOP_END_28
+			.LOOP_START_28:
 				add byte [r12], 1
 				cmp [r12], byte 0
-				je .LOOP_END_29
-				.LOOP_START_29:
+				je .LOOP_END_30
+				.LOOP_START_30:
 					sub byte [r12], 3
 					add r12, byte 1
 				cmp [r12], byte 0
-				jne .LOOP_START_29
-				.LOOP_END_29:
+				jne .LOOP_START_30
+				.LOOP_END_30:
 				sub byte [r12], 1
 				cmp [r12], byte 0
-				je .LOOP_END_36
-				.LOOP_START_36:
+				je .LOOP_END_37
+				.LOOP_START_37:
 					sub r12, byte 3
 				cmp [r12], byte 0
-				jne .LOOP_START_36
-				.LOOP_END_36:
+				jne .LOOP_START_37
+				.LOOP_END_37:
 			cmp [r12], byte 0
-			jne .LOOP_START_27
-			.LOOP_END_27:
+			jne .LOOP_START_28
+			.LOOP_END_28:
 		cmp [r12], byte 0
-		jne .LOOP_START_24
-		.LOOP_END_24:
+		jne .LOOP_START_25
+		.LOOP_END_25:
 		add r12, byte 3
 		sub byte [r12], 1
 	cmp [r12], byte 0
-	jne .LOOP_START_22
-	.LOOP_END_22:
+	jne .LOOP_START_23
+	.LOOP_END_23:
 	add r12, byte 1
 	sub byte [r12], 1
 	mov rax, SYS_WRITE

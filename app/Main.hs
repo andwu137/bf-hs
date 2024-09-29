@@ -2,13 +2,16 @@
 
 module Main (main) where
 
+import Control.Applicative (Alternative (empty))
+import Control.Monad
 import Data.Foldable (Foldable (..))
+import Data.Functor
 import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
+import Language.BF.Compile.X86_64 (compile)
+import System.Directory
 import System.Environment (getArgs)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
-
-import Language.BF.Compile.X86_64 (compile)
 
 data Args = Args
     { inputFile :: Maybe String
@@ -16,7 +19,7 @@ data Args = Args
     , outputDir :: Maybe String
     , debugs :: Bool
     }
-    deriving (Show)
+    deriving (Show, Eq)
 
 instance Semigroup Args where
     (Args{inputFile = if1, inputDir = id1, outputDir = od1, debugs = d1})
@@ -36,41 +39,71 @@ instance Monoid Args where
 lstrip :: (Eq a) => a -> [a] -> [a]
 lstrip c = dropWhile (c ==)
 
+infixr 9 .*
+(.*) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
+(.*) = fmap fmap fmap
+
+startsWith :: [Char] -> [Char] -> Bool
+startsWith = and .* zipWith (==)
+
+opt :: String -> (String -> a) -> [String] -> Maybe (a, [String])
+opt = \cases
+    match f (op : r : rs) -> do
+        guard $ startsWith match op
+        pure (f r, rs)
+    _ _ _ -> Nothing
+
+flag :: String -> a -> [String] -> Maybe (a, [String])
+flag = \cases
+    _ _ [] -> Nothing
+    m c (r : rs) -> do
+        guard $ startsWith m r
+        pure (c, rs)
+
+findM :: (Alternative f) => (f a -> Bool) -> [f a] -> f a
+findM p = \case
+    [] -> empty
+    x : xs
+        | p x -> x
+        | otherwise -> findM p xs
+
 parseArgs :: [String] -> Args
 parseArgs args = fold $ unfoldr parseArg args
   where
-    parseArg = \case
-        "-i" : name : xs ->
-            pure
-                ( mempty{inputFile = Just $ lstrip ' ' name}
-                , xs
-                )
-        "-I" : dir : xs ->
-            pure
-                ( mempty{inputDir = Just $ lstrip ' ' dir}
-                , xs
-                )
-        "-o" : dir : xs ->
-            pure
-                ( mempty{outputDir = Just $ lstrip ' ' dir}
-                , xs
-                )
-        "-d" : xs -> pure (mempty{debugs = True}, xs)
-        _ -> Nothing
+    opts =
+        [ opt "-i" $ \x -> mempty{inputFile = pure $ lstrip ' ' x}
+        , opt "-I" $ \x -> mempty{inputDir = pure $ lstrip ' ' x}
+        , opt "-o" $ \x -> mempty{outputDir = pure $ lstrip ' ' x}
+        , flag "-d" $ mempty{debugs = True}
+        ]
+    parseArg :: [String] -> Maybe (Args, [String])
+    parseArg = findM (Nothing /=) . sequence opts
 
 main :: IO ()
 main = do
     hSetBuffering stdout NoBuffering
 
     args <- parseArgs <$> getArgs
-    filename <-
-        case inputFile args of
-            Just file -> pure file
-            -- Nothing -> getInput "filename: "
-            Nothing -> pure "hello_world"
-    let outputTemp = output <> "/temp"
-        input = fromMaybe "input" $ inputDir args
-        output = fromMaybe "output" $ outputDir args
+    let outTemp = outDir <> "/temp"
+        input = inputFile args
+        inDir = fromMaybe "input" $ inputDir args
+        outDir = fromMaybe "output" $ outputDir args
         debug = debugs args
 
-    compile debug filename input outputTemp output
+    let isBF = \case
+            ".b" -> pure []
+            x : xs -> (x :) <$> isBF xs
+            _ -> Nothing
+        compileFile f = do
+            putStrLn $ "Compiling from file: " <> f
+            compile debug f inDir outTemp outDir
+        compileDir = do
+            putStrLn $ "Compiling from directory: " <> inDir
+            files <-
+                getDirectoryContents inDir <&> \fs ->
+                    fs >>= maybe empty pure . isBF
+            forM_ files compileFile
+
+    case input of
+        Just f -> compileFile f
+        Nothing -> compile debug "hello_world" "input" "output/temp" "output"

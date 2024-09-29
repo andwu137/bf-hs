@@ -34,9 +34,9 @@ obj2exec filename outputTemp output =
         ]
         ""
 
-compile :: Bool -> FilePath -> FilePath -> String -> String -> IO ()
-compile debug filename input outputTemp output = do
-    file <- readFile (input <> "/" <> filename <> ".b")
+compile :: Bool -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()
+compile debug filename inDir outTemp outDir = do
+    file <- readFile (inDir <> "/" <> filename <> ".b")
     when debug $ do
         putStrLn "File Contents:"
         mapM_ putStrLn $ lines file
@@ -46,15 +46,15 @@ compile debug filename input outputTemp output = do
             putStrLn "welp that didnt work for some reason"
             putStrLn "error messages are for the weak anyways"
         Just (prog, _s) -> do
-            putStrLn (outputTemp <> "/" <> filename <> ".asm")
-            writeFile (outputTemp <> "/" <> filename <> ".asm") $
+            putStrLn (outTemp <> "/" <> filename <> ".asm")
+            writeFile (outTemp <> "/" <> filename <> ".asm") $
                 unlines prog
 
-            putStrLn (outputTemp <> "/" <> filename <> ".o")
-            void $ nasm2obj filename outputTemp
+            putStrLn (outTemp <> "/" <> filename <> ".o")
+            void $ nasm2obj filename outTemp
 
-            putStrLn (output <> "/" <> filename)
-            void $ obj2exec filename outputTemp output
+            putStrLn (outDir <> "/" <> filename)
+            void $ obj2exec filename outTemp outDir
 
 bf2nasm :: Parser String Maybe [Expr] -> Parser String Maybe [String]
 bf2nasm p =
