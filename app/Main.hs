@@ -4,7 +4,7 @@ module Main (main) where
 
 import Control.Applicative (Alternative (empty))
 import Control.Monad
-import Data.Foldable (Foldable (..))
+import Data.Foldable (Foldable (..), traverse_)
 import Data.Functor
 import Data.List (unfoldr)
 import Data.Maybe (fromMaybe)
@@ -79,6 +79,9 @@ parseArgs args = fold $ unfoldr parseArg args
     parseArg :: [String] -> Maybe (Args, [String])
     parseArg = findM (Nothing /=) . sequence opts
 
+setupDirs :: [FilePath] -> IO ()
+setupDirs = traverse_ (createDirectoryIfMissing True)
+
 main :: IO ()
 main = do
     hSetBuffering stdout NoBuffering
@@ -105,5 +108,9 @@ main = do
             forM_ files compileFile
 
     case input of
-        Just f -> compileFile f
-        Nothing -> compile debug "hello_world" "input" "output/temp" "output"
+        Just f -> do
+            setupDirs [inDir, outDir, outTemp]
+            compileFile f
+        Nothing -> do
+            setupDirs ["input", "output", "output/temp"]
+            compile debug "hello_world" "input" "output/temp" "output"
