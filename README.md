@@ -8,6 +8,7 @@
 ### Flags and Arguments
 ```manpage
 -i          Provide input file
+-o          Provide output file
 -O          Provide output directory
 -T          Provide temporary output directory (this is for intermediate files)
 -I          Provide input directory (this is ignored if `-i` is set)
