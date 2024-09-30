@@ -4,39 +4,44 @@ module Language.BF.Compile.X86_64 (
     function2nasm,
 ) where
 
-import Language.BF (Expr (..), Parser, bf, runParser)
-
 import Control.Monad (void, when)
 import Data.Functor ((<&>))
+import Language.BF (Expr (..), Parser, bf, runParser)
+import System.Directory.Internal.Prelude (exitFailure)
+import System.FilePath ((</>))
+import System.FilePath.Posix (takeBaseName)
 import System.Process (readProcess)
 
-nasm2obj :: String -> String -> IO String
+nasm2obj :: String -> FilePath -> IO ()
 nasm2obj filename outputTemp =
-    readProcess
-        "nasm"
-        [ "-f"
-        , "elf64"
-        , outputTemp <> "/" <> filename <> ".asm"
-        , "-o"
-        , outputTemp <> "/" <> filename <> ".o"
-        ]
-        ""
+    void $
+        readProcess
+            "nasm"
+            [ "-f"
+            , "elf64"
+            , outputTemp </> filename <> ".asm"
+            , "-o"
+            , outputTemp </> filename <> ".o"
+            ]
+            ""
 
-obj2exec :: String -> String -> String -> IO String
-obj2exec filename outputTemp output =
-    readProcess
-        "ld"
-        [ "-m"
-        , "elf_x86_64"
-        , outputTemp <> "/" <> filename <> ".o"
-        , "-o"
-        , output <> "/" <> filename
-        ]
-        ""
+obj2exec :: String -> FilePath -> FilePath -> String -> IO ()
+obj2exec filename outputTemp output outFile =
+    void $
+        readProcess
+            "ld"
+            [ "-m"
+            , "elf_x86_64"
+            , outputTemp </> filename <> ".o"
+            , "-o"
+            , output </> outFile
+            ]
+            ""
 
-compile :: Bool -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()
-compile debug filename inDir outTemp outDir = do
-    file <- readFile (inDir <> "/" <> filename <> ".b")
+compile :: Bool -> String -> FilePath -> FilePath -> String -> IO ()
+compile debug inPath outTemp outDir outPath = do
+    let outName = takeBaseName outPath
+    file <- readFile inPath
     when debug $ do
         putStrLn "File Contents:"
         mapM_ putStrLn $ lines file
@@ -45,16 +50,17 @@ compile debug filename inDir outTemp outDir = do
         Nothing -> do
             putStrLn "welp that didnt work for some reason"
             putStrLn "error messages are for the weak anyways"
+            exitFailure
         Just (prog, _s) -> do
-            putStrLn (outTemp <> "/" <> filename <> ".asm")
-            writeFile (outTemp <> "/" <> filename <> ".asm") $
+            when debug $ putStrLn (outTemp </> outName <> ".asm")
+            writeFile (outTemp </> outName <> ".asm") $
                 unlines prog
 
-            putStrLn (outTemp <> "/" <> filename <> ".o")
-            void $ nasm2obj filename outTemp
+            when debug $ putStrLn (outTemp </> outName <> ".o")
+            nasm2obj outName outTemp
 
-            putStrLn (outDir <> "/" <> filename)
-            void $ obj2exec filename outTemp outDir
+            when debug $ putStrLn (outDir </> outPath)
+            obj2exec outName outTemp outDir outPath
 
 bf2nasm :: Parser String Maybe [Expr] -> Parser String Maybe [String]
 bf2nasm p =

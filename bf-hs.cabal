@@ -25,10 +25,12 @@ source-repository head
 
 library
   exposed-modules:
+      CommandLine
       Language.BF
       Language.BF.Compile.X86_64
       Language.BF.Syntax
       Parser.Core
+      Utils
   other-modules:
       Paths_bf_hs
   autogen-modules:
@@ -41,6 +43,7 @@ library
   build-depends:
       base >=4.7 && <5
     , directory
+    , filepath
     , process
   default-language: Haskell2010
 
@@ -57,6 +60,7 @@ executable bf-hs-exe
       base >=4.7 && <5
     , bf-hs
     , directory
+    , filepath
     , process
   default-language: Haskell2010
 
@@ -74,5 +78,6 @@ test-suite bf-hs-test
       base >=4.7 && <5
     , bf-hs
     , directory
+    , filepath
     , process
   default-language: Haskell2010

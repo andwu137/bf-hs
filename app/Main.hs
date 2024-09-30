@@ -2,115 +2,104 @@
 
 module Main (main) where
 
-import Control.Applicative (Alternative (empty))
-import Control.Monad
-import Data.Foldable (Foldable (..), traverse_)
-import Data.Functor
-import Data.List (unfoldr)
+import CommandLine
+import Control.Monad (when)
+import Data.Bits (Ior (..))
+import Data.Foldable (asum, forM_, traverse_)
+import Data.Functor ((<&>))
 import Data.Maybe (fromMaybe)
 import Language.BF.Compile.X86_64 (compile)
-import System.Directory
+import System.Directory (createDirectoryIfMissing, getDirectoryContents)
 import System.Environment (getArgs)
+import System.Exit (exitFailure)
+import System.FilePath (takeBaseName, (</>))
 import System.IO (BufferMode (..), hSetBuffering, stdout)
-
-data Args = Args
-    { inputFile :: Maybe String
-    , inputDir :: Maybe String
-    , outputDir :: Maybe String
-    , debugs :: Bool
-    }
-    deriving (Show, Eq)
-
-instance Semigroup Args where
-    (Args{inputFile = if1, inputDir = id1, outputDir = od1, debugs = d1})
-        <> (Args{inputFile = if2, inputDir = id2, outputDir = od2, debugs = d2}) =
-            Args
-                { inputFile = leftOrRightStr if1 if2
-                , inputDir = leftOrRightStr id1 id2
-                , outputDir = leftOrRightStr od1 od2
-                , debugs = d1 || d2
-                }
-          where
-            leftOrRightStr x y = if null $ fromMaybe [] x then y else x
-
-instance Monoid Args where
-    mempty = Args mempty mempty mempty False
-
-lstrip :: (Eq a) => a -> [a] -> [a]
-lstrip c = dropWhile (c ==)
-
-infixr 9 .*
-(.*) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
-(.*) = fmap fmap fmap
-
-startsWith :: [Char] -> [Char] -> Bool
-startsWith = and .* zipWith (==)
-
-opt :: String -> (String -> a) -> [String] -> Maybe (a, [String])
-opt = \cases
-    match f (op : r : rs) -> do
-        guard $ startsWith match op
-        pure (f r, rs)
-    _ _ _ -> Nothing
-
-flag :: String -> a -> [String] -> Maybe (a, [String])
-flag = \cases
-    _ _ [] -> Nothing
-    m c (r : rs) -> do
-        guard $ startsWith m r
-        pure (c, rs)
-
-findM :: (Alternative f) => (f a -> Bool) -> [f a] -> f a
-findM p = \case
-    [] -> empty
-    x : xs
-        | p x -> x
-        | otherwise -> findM p xs
-
-parseArgs :: [String] -> Args
-parseArgs args = fold $ unfoldr parseArg args
-  where
-    opts =
-        [ opt "-i" $ \x -> mempty{inputFile = pure $ lstrip ' ' x}
-        , opt "-I" $ \x -> mempty{inputDir = pure $ lstrip ' ' x}
-        , opt "-o" $ \x -> mempty{outputDir = pure $ lstrip ' ' x}
-        , flag "-d" $ mempty{debugs = True}
-        ]
-    parseArg :: [String] -> Maybe (Args, [String])
-    parseArg = findM (Nothing /=) . sequence opts
+import Utils
 
 setupDirs :: [FilePath] -> IO ()
 setupDirs = traverse_ (createDirectoryIfMissing True)
+
+{- Args -}
+data Args = Args
+    { inputFile :: MaybeOr String
+    , outputFile :: MaybeOr String
+    , inputDir :: MaybeOr String
+    , outputDir :: MaybeOr String
+    , tempDir :: MaybeOr String
+    , debugs :: Ior Bool
+    }
+    deriving (Show, Eq)
+
+-- NOTE: Man if only there were a way to derive this
+-- that would be crazyyyyyyy
+instance Semigroup Args where
+    (Args{inputFile = if1, outputFile = of1, inputDir = id1, outputDir = od1, debugs = d1, tempDir = td1})
+        <> (Args{inputFile = if2, outputFile = of2, inputDir = id2, outputDir = od2, debugs = d2, tempDir = td2}) =
+            Args
+                { inputFile = if1 <> if2
+                , outputFile = of1 <> of2
+                , inputDir = id1 <> id2
+                , outputDir = od1 <> od2
+                , tempDir = td1 <> td2
+                , debugs = d1 <> d2
+                }
+
+instance Monoid Args where
+    mempty = Args mempty mempty mempty mempty mempty mempty
+
+opts :: [ArgOption Args]
+opts =
+    [ opt "-i" $ \x -> mempty{inputFile = pure $ lstrip ' ' x}
+    , opt "-o" $ \x -> mempty{outputFile = pure $ lstrip ' ' x}
+    , opt "-I" $ \x -> mempty{inputDir = pure $ lstrip ' ' x}
+    , opt "-O" $ \x -> mempty{outputDir = pure $ lstrip ' ' x}
+    , opt "-T" $ \x -> mempty{tempDir = pure $ lstrip ' ' x}
+    , flag "-d" $ mempty{debugs = Ior True}
+    ]
 
 main :: IO ()
 main = do
     hSetBuffering stdout NoBuffering
 
-    args <- parseArgs <$> getArgs
-    let outTemp = outDir <> "/temp"
-        input = inputFile args
-        inDir = fromMaybe "input" $ inputDir args
-        outDir = fromMaybe "output" $ outputDir args
-        debug = debugs args
+    margs <- parseArgs opts <$> getArgs
+    args <- case margs of
+        Left e -> putStrLn e >> exitFailure
+        Right a -> pure a
+    let outTemp = fromMaybe outDir . getMaybeOr $ tempDir args
+        input = getMaybeOr $ inputFile args
+        output = getMaybeOr $ outputFile args
+        inDir = getMaybeOr $ inputDir args
+        outDir = fromMaybe "." . getMaybeOr $ outputDir args
+        debug = getIor $ debugs args
 
     let isBF = \case
-            ".b" -> pure []
-            x : xs -> (x :) <$> isBF xs
-            _ -> Nothing
-        compileFile f = do
-            putStrLn $ "Compiling from file: " <> f
-            compile debug f inDir outTemp outDir
-        compileDir = do
-            putStrLn $ "Compiling from directory: " <> inDir
-            files <-
-                getDirectoryContents inDir <&> \fs ->
-                    fs >>= maybe empty pure . isBF
+            [] -> False
+            ".b" -> True
+            _ : xs -> isBF xs
+        compileFile = compileFileTo <*> takeBaseName
+        compileFileTo inF outF = do
+            when debug $ putStrLn $ "Compiling from file: " <> inF
+            compile debug inF outTemp outDir outF
+        compileDir d = do
+            putStrLn $ "Compiling from directory: " <> d
+            files <- fmap (d </>) . filter isBF <$> getDirectoryContents d
             forM_ files compileFile
+        choiceM = fromMaybe (pure ()) . asum
 
-    case input of
-        Just f -> do
+    choiceM
+        [ input <&> \inF ->
+            choiceM
+                [ output <&> compile debug inF outTemp outDir
+                , pure $ do
+                    setupDirs [outDir, outTemp]
+                    compileFile inF
+                ]
+        , inDir <&> \d -> do
             setupDirs [outDir, outTemp]
-            compileFile f
-        Nothing -> do
-            setupDirs ["output", "output/temp"]
-            compile debug "hello_world" "input" "output/temp" "output"
+            compileDir d
+        , pure $ do
+            putStrLn "Error: missing arguments"
+            exitFailure
+            -- setupDirs ["output", "output/temp"]
+            -- compile debug "input/hello_world.b" "output/temp" "output"
+        ]
