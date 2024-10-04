@@ -46,7 +46,7 @@ compile debug inPath outTemp outDir outPath = do
         putStrLn "File Contents:"
         mapM_ putStrLn $ lines file
 
-    case runParser (bf2nasm bf) file of
+    case runParser (bf2nasm <$> bf) file of
         Nothing -> do
             putStrLn "welp that didnt work for some reason"
             putStrLn "error messages are for the weak anyways"
@@ -62,30 +62,29 @@ compile debug inPath outTemp outDir outPath = do
             when debug $ putStrLn (outDir </> outPath)
             obj2exec outName outTemp outDir outPath
 
-bf2nasm :: Parser String Maybe [Expr] -> Parser String Maybe [String]
-bf2nasm p =
-    p <&> \fs ->
-        let header =
-                [ "SECTION .data"
-                , "SYS_EXIT equ 60"
-                , "SUCCESS equ 0"
-                , "SYS_WRITE equ 1"
-                , "STDOUT equ 1"
-                , "SYS_READ equ 0"
-                , "STDIN equ 0"
-                , "SECTION .bss"
-                , "array: resb 30000"
-                , "SECTION .text"
-                , "global _start"
-                , "_start:"
-                , "\tmov r12, array"
-                ]
-            footer =
-                [ "\tmov rax, SYS_EXIT"
-                , "\tmov rdi, SUCCESS"
-                , "\tsyscall"
-                ]
-         in header <> (function2nasm =<< fs) <> footer
+bf2nasm :: [Expr] -> [String]
+bf2nasm exprs =
+    let header =
+            [ "SECTION .data"
+            , "SYS_EXIT equ 60"
+            , "SUCCESS equ 0"
+            , "SYS_WRITE equ 1"
+            , "STDOUT equ 1"
+            , "SYS_READ equ 0"
+            , "STDIN equ 0"
+            , "SECTION .bss"
+            , "array: resb 30000"
+            , "SECTION .text"
+            , "global _start"
+            , "_start:"
+            , "\tmov r12, array"
+            ]
+        footer =
+            [ "\tmov rax, SYS_EXIT"
+            , "\tmov rdi, SUCCESS"
+            , "\tsyscall"
+            ]
+     in header <> (function2nasm =<< exprs) <> footer
 
 function2nasm :: Expr -> [String]
 function2nasm =
