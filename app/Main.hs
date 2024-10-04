@@ -87,12 +87,11 @@ main = do
         choiceM = fromMaybe (pure ()) . asum
 
     choiceM
-        [ input <&> \inF ->
+        [ input <&> \inF -> do
+            setupDirs [outDir, outTemp]
             choiceM
                 [ output <&> compile debug inF outTemp outDir
-                , pure $ do
-                    setupDirs [outDir, outTemp]
-                    compileFile inF
+                , pure $ compileFile inF
                 ]
         , inDir <&> \d -> do
             setupDirs [outDir, outTemp]
