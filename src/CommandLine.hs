@@ -1,6 +1,5 @@
 module CommandLine (
     ArgOption,
-    MaybeOr (..),
     opt,
     flag,
     parseArgs,
@@ -12,20 +11,6 @@ import Data.List (find)
 import Utils
 
 type ArgOption a = [String] -> Maybe (a, [String])
-
-{- MaybeOr -}
-newtype MaybeOr a = MaybeOr {getMaybeOr :: Maybe a}
-    deriving (Show, Eq, Functor)
-
-instance Semigroup (MaybeOr a) where
-    (MaybeOr x) <> (MaybeOr y) = MaybeOr $ maybe y pure x
-
-instance Monoid (MaybeOr a) where
-    mempty = MaybeOr Nothing
-
-instance Applicative MaybeOr where
-    pure = MaybeOr . Just
-    (<*>) = liftA2 ($)
 
 unfoldArgs :: (Eq a) => [ArgOption a] -> [String] -> Either String [a]
 unfoldArgs opts = go

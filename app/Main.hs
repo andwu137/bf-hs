@@ -21,11 +21,11 @@ setupDirs = traverse_ (createDirectoryIfMissing True)
 
 {- Args -}
 data Args = Args
-    { inputFile :: MaybeOr String
-    , outputFile :: MaybeOr String
-    , inputDir :: MaybeOr String
-    , outputDir :: MaybeOr String
-    , tempDir :: MaybeOr String
+    { inputFile :: Maybe String
+    , outputFile :: Maybe String
+    , inputDir :: Maybe String
+    , outputDir :: Maybe String
+    , tempDir :: Maybe String
     , debugs :: Ior Bool
     }
     deriving (Show, Eq)
@@ -65,11 +65,11 @@ main = do
     args <- case margs of
         Left e -> putStrLn e >> exitFailure
         Right a -> pure a
-    let outTemp = fromMaybe outDir . getMaybeOr $ tempDir args
-        input = getMaybeOr $ inputFile args
-        output = getMaybeOr $ outputFile args
-        inDir = getMaybeOr $ inputDir args
-        outDir = fromMaybe "." . getMaybeOr $ outputDir args
+    let outTemp = fromMaybe outDir $ tempDir args
+        input = inputFile args
+        output = outputFile args
+        inDir = inputDir args
+        outDir = fromMaybe "." $ outputDir args
         debug = getIor $ debugs args
 
     let isBF = \case
